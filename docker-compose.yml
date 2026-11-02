@@ -1,0 +1,68 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lkumkm-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules_v2:/app/node_modules
+    environment:
+      - VITE_API_PROXY_TARGET=http://backend:3000
+      - VITE_DEMO_EMAIL=${DEMO_EMAIL:?Set DEMO_EMAIL in .env}
+      - VITE_DEMO_PASSWORD=${DEMO_PASSWORD:?Set DEMO_PASSWORD in .env}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lkumkm-backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules_v2:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${MYSQL_DATABASE:-lkumkm}
+      - DB_USER=${MYSQL_USER:-lkumkm}
+      - DB_PASSWORD=${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      - DEMO_ENABLED=${DEMO_ENABLED:-true}
+      - DEMO_EMAIL=${DEMO_EMAIL:?Set DEMO_EMAIL in .env}
+      - DEMO_PASSWORD=${DEMO_PASSWORD:?Set DEMO_PASSWORD in .env}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    container_name: lkumkm-mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lkumkm}
+      MYSQL_USER: ${MYSQL_USER:-lkumkm}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  frontend_node_modules_v2:
+  backend_node_modules_v2:
+  mysql_data:
